@@ -101,10 +101,48 @@ public enum ReadError: Error {
             .outOfMemory(error)
         case .ENOENT:
             .access(.fileSystem(.fileNotFound(error)))
+        // `POSIXErrorCode` is declared per-platform in the Swift standard library
+        // (stdlib/public/Platform/POSIXError.swift), and four of the codes below
+        // do not exist in every arm:
+        //   * EAUTH is BSD/Darwin only — declared in the Darwin and
+        //     OpenBSD/FreeBSD arms, absent on Linux, Android, WASI and Windows.
+        //   * EDQUOT, ELOOP and ESTALE have no ucrt equivalent, so the Windows
+        //     arm omits them.
+        // Naming them unconditionally makes this file compile on Apple platforms
+        // only.
+        #if canImport(Darwin)
         case .EPERM, .EACCES, .EAUTH:
             .access(.fileSystem(.forbidden(error)))
+        #else
+        case .EPERM, .EACCES:
+            .access(.fileSystem(.forbidden(error)))
+        #endif
+        #if os(Windows)
+        case .ENOSPC:
+            .access(.fileSystem(.outOfSpace(error)))
+        #else
         case .ENOSPC, .EDQUOT:
             .access(.fileSystem(.outOfSpace(error)))
+        #endif
+        #if os(Windows)
+        case
+            .EIO,
+            .ENXIO,
+            .EBADF,
+            .EBUSY,
+            .EEXIST,
+            .ENOTDIR,
+            .EISDIR,
+            .ENFILE,
+            .EMFILE,
+            .EFBIG,
+            .EROFS,
+            .EMLINK,
+            .ENAMETOOLONG,
+            .ENOTEMPTY,
+            .ENOLCK:
+            .access(.fileSystem(.io(error)))
+        #else
         case
             .EIO,
             .ENXIO,
@@ -124,6 +162,7 @@ public enum ReadError: Error {
             .ESTALE,
             .ENOLCK:
             .access(.fileSystem(.io(error)))
+        #endif
         default:
             nil
         }
