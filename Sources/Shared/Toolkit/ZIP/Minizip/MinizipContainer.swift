@@ -243,7 +243,12 @@ private final class MinizipFile {
             free(filename)
         }
         memset(&fileInfo, 0, MemoryLayout<unz_file_info64>.size)
-        try execute { unzGetCurrentFileInfo64(file, &fileInfo, filename, UInt(filenameMaxSize), nil, 0, nil, 0) }
+        // `uLong(...)`, not `UInt(...)`: minizip declares `fileNameBufferSize` as
+        // zlib's `uLong`, i.e. C `unsigned long` -- 64-bit on LP64 (Darwin, Linux),
+        // where it happens to match Swift's `UInt`, but 32-bit on LLP64 (Windows),
+        // where `UInt` is 64-bit and therefore does not convert. Naming the zlib
+        // typealias is correct on every platform and a no-op where the two agree.
+        try execute { unzGetCurrentFileInfo64(file, &fileInfo, filename, uLong(filenameMaxSize), nil, 0, nil, 0) }
         let path = String(cString: filename)
 
         if path.hasSuffix("/") {
