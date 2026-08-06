@@ -240,7 +240,18 @@ private final class MinizipFile {
         var fileInfo = unz_file_info64()
         let filename = UnsafeMutablePointer<CChar>.allocate(capacity: filenameMaxSize)
         defer {
-            free(filename)
+            // `deallocate()`, not `free()`: memory from
+            // `UnsafeMutablePointer.allocate(capacity:)` must be released with
+            // `deallocate()`, and on Windows the difference is fatal rather than
+            // stylistic. `allocate` passes the "default alignment" sentinel, which
+            // routes the Swift runtime through `AlignedAlloc` -- `_aligned_malloc`
+            // on Windows, whose blocks require `_aligned_free`, so `free()` on one
+            // corrupts the heap (STATUS_HEAP_CORRUPTION, 0xC0000374). On Darwin and
+            // Linux that same branch is `aligned_alloc` / `posix_memalign`, whose
+            // pointers ARE free()-able, which is why this went unnoticed. Every
+            // other `allocate(capacity:)` in this repo already pairs with
+            // `deallocate()`; this was the only one that did not.
+            filename.deallocate()
         }
         memset(&fileInfo, 0, MemoryLayout<unz_file_info64>.size)
         // `uLong(...)`, not `UInt(...)`: minizip declares `fileNameBufferSize` as
