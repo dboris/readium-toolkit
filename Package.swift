@@ -140,7 +140,7 @@ let package = Package(
         ),
         .testTarget(
             name: "ReadiumNavigatorTests",
-            dependencies: ["ReadiumNavigator"],
+            dependencies: ["ReadiumNavigator", "ReadiumStreamer", "TestPublications"],
             path: "Tests/NavigatorTests",
             exclude: [
                 "UITests",

@@ -166,7 +166,7 @@ open class PDFNavigatorViewController:
 
                 // Reset the PDF view to update the spread if needed.
                 if self.settings.spread == .auto {
-                    self.resetPDFView(at: self.currentLocation)
+                    self.resetPDFView(at: self.locationToRestore)
                 }
             })
         }
@@ -178,10 +178,24 @@ open class PDFNavigatorViewController:
         super.buildMenu(with: builder)
     }
 
-    private var resetTask: Task<Void, Never>? {
+    private(set) var resetTask: Task<Void, Never>? {
         willSet {
             resetTask?.cancel()
         }
+    }
+
+    /// The location the pending `resetTask` is rebuilding the PDF view at,
+    /// until it gets there.
+    private var resettingLocation: Locator?
+
+    /// Where a new PDF view should open to keep the user's place.
+    ///
+    /// While a reset is in progress, `currentLocation` reads the new PDF view,
+    /// which has no document until it is loaded: a second reset requested in
+    /// that window (e.g. two preferences submitted back to back) would restart
+    /// from the first page.
+    private var locationToRestore: Locator? {
+        resettingLocation ?? currentLocation
     }
 
     private func resetPDFView(at locator: Locator?) {
@@ -189,8 +203,12 @@ open class PDFNavigatorViewController:
             return
         }
 
+        resettingLocation = locator
         resetTask = Task {
             await _resetPDFView(at: locator)
+            if !Task.isCancelled {
+                resettingLocation = nil
+            }
         }
     }
 
@@ -572,7 +590,7 @@ open class PDFNavigatorViewController:
             defaults: config.defaults,
             metadata: publication.metadata
         )
-        resetPDFView(at: currentLocation)
+        resetPDFView(at: locationToRestore)
 
         delegate?.navigator(self, presentationDidChange: presentation)
     }
